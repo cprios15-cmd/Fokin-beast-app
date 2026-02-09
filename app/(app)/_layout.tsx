@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { useAuthStore } from '../src/store/authStore';
+import { useAuthStore } from '../../src/store/authStore';
 
 export default function RootLayout() {
   const segments = useSegments();
@@ -14,18 +14,16 @@ export default function RootLayout() {
   useEffect(() => {
     if (isLoading) return;
 
-    const inLogin = segments[0] === 'login';
-
-    if (!isAuthenticated && !inLogin) {
+    if (!isAuthenticated && segments[0] !== 'login') {
       router.replace('/login');
-    }
-
-    if (isAuthenticated && inLogin) {
+    } else if (isAuthenticated && segments[0] === 'login') {
       router.replace('/(app)');
     }
   }, [isAuthenticated, isLoading, segments]);
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return null;
+  }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

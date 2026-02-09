@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useAuthStore } from '../src/store/authStore';
+import { useAuthStore } from '../../src/store/authStore';
 
 export default function HomeScreen() {
   const { user, logout } = useAuthStore();
@@ -48,14 +48,6 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 8,
     marginTop: 30,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   buttonText: {
     color: 'white',
