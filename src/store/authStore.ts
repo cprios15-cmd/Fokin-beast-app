@@ -9,14 +9,17 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  
+
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   loadSession: () => Promise<void>;
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+const AUTH_TOKEN_KEY = 'auth_token';
+const AUTH_USER_KEY = 'auth_user';
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
   isAuthenticated: false,
@@ -24,62 +27,77 @@ export const useAuthStore = create<AuthState>((set) => ({
   error: null,
 
   login: async (username: string, password: string) => {
-    try {
-      set({ error: null });
+    // Marcamos loading para que UI pueda deshabilitar inputs si quieres
+    set({ isLoading: true, error: null });
 
-      // Validar contra usuarios hardcodeados
+    try {
       const user = validateCredentials(username, password);
 
       if (!user) {
-        set({ error: 'Usuario o contraseña incorrectos' });
-        throw new Error('Credenciales inválidas');
+        const msg = 'Usuario o contraseña incorrectos';
+        set({ isAuthenticated: false, token: null, user: null, error: msg, isLoading: false });
+        throw new Error(msg);
       }
 
-      // Generar token simple (en producción sería JWT real)
       const token = `token-${user.id}-${Date.now()}`;
 
-      // Guardar sesión
-      await AsyncStorage.setItem('auth_token', token);
-      await AsyncStorage.setItem('user', JSON.stringify(user));
+      await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
+      await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
 
-      set({ 
-        user, 
-        token, 
-        isAuthenticated: true, 
+      set({
+        user,
+        token,
+        isAuthenticated: true,
         isLoading: false,
-        error: null 
+        error: null,
       });
-    } catch (error) {
-      console.error('Error en login:', error);
-      throw error;
+    } catch (e) {
+      // Si algo falla (storage, etc.), deja el estado consistente
+      const msg = e instanceof Error ? e.message : 'Error al iniciar sesión';
+      set({
+        isAuthenticated: false,
+        token: null,
+        user: null,
+        error: msg,
+        isLoading: false,
+      });
+      throw e;
     }
   },
 
   logout: async () => {
-    await AsyncStorage.removeItem('auth_token');
-    await AsyncStorage.removeItem('user');
-    set({ 
-      user: null, 
-      token: null, 
-      isAuthenticated: false,
-      error: null 
-    });
+    try {
+      set({ isLoading: true, error: null });
+      await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+      await AsyncStorage.removeItem(AUTH_USER_KEY);
+    } finally {
+      // Siempre deja el estado limpio
+      set({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+      });
+    }
   },
 
   loadSession: async () => {
+    set({ isLoading: true, error: null });
+
     try {
-      const token = await AsyncStorage.getItem('auth_token');
-      const userStr = await AsyncStorage.getItem('user');
+      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      const userStr = await AsyncStorage.getItem(AUTH_USER_KEY);
 
       if (token && userStr) {
-        const user = JSON.parse(userStr);
-        set({ user, token, isAuthenticated: true, isLoading: false });
+        const user: User = JSON.parse(userStr);
+        set({ user, token, isAuthenticated: true, isLoading: false, error: null });
       } else {
-        set({ isLoading: false });
+        set({ user: null, token: null, isAuthenticated: false, isLoading: false, error: null });
       }
-    } catch (error) {
-      console.error('Error cargando sesión:', error);
-      set({ isLoading: false });
+    } catch (e) {
+      console.error('Error cargando sesión:', e);
+      set({ user: null, token: null, isAuthenticated: false, isLoading: false, error: null });
     }
   },
 

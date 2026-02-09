@@ -5,11 +5,12 @@ import { useAuthStore } from '../src/store/authStore';
 export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
+
   const { isAuthenticated, isLoading, loadSession } = useAuthStore();
 
   useEffect(() => {
     loadSession();
-  }, []);
+  }, [loadSession]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -18,12 +19,10 @@ export default function RootLayout() {
 
     if (!isAuthenticated && !inLogin) {
       router.replace('/login');
-    }
-
-    if (isAuthenticated && inLogin) {
+    } else if (isAuthenticated && inLogin) {
       router.replace('/(app)');
     }
-  }, [isAuthenticated, isLoading, segments]);
+  }, [isAuthenticated, isLoading, segments, router]);
 
   if (isLoading) return null;
 
