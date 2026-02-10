@@ -1,33 +1,9 @@
-import { useEffect } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { useAuthStore } from '../src/store/authStore';
+import { Stack } from 'expo-router';
 
 export default function RootLayout() {
-  const segments = useSegments();
-  const router = useRouter();
-
-  const { isAuthenticated, isLoading, loadSession } = useAuthStore();
-
-  useEffect(() => {
-    loadSession();
-  }, [loadSession]);
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    const inLogin = segments[0] === 'login';
-
-    if (!isAuthenticated && !inLogin) {
-      router.replace('/login');
-    } else if (isAuthenticated && inLogin) {
-      router.replace('/(app)');
-    }
-  }, [isAuthenticated, isLoading, segments, router]);
-
-  if (isLoading) return null;
-
+  // Start directly with login; no session hydration needed since it auto-navigates after 3s
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false }} initialRouteName="login">
       <Stack.Screen name="login" />
       <Stack.Screen name="(app)" />
     </Stack>

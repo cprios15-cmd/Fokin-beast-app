@@ -1,36 +1,57 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, BackHandler, Platform, ImageBackground } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useHabitStore } from '../store/habitStore';
+import { getIconSource } from '../utils/iconMap';
+import { Image } from 'react-native';
 import { useAuthStore } from '../store/authStore';
-import { useRoutineStore } from '../store/routineStore';
 
 export default function HomeScreen() {
   const router = useRouter();
 
-  const { user, logout, isLoading: authLoading } = useAuthStore();
-  const { routines, loadRoutines, removeRoutine, isLoading: routineLoading } = useRoutineStore();
+  const { logout, isLoading: authLoading } = useAuthStore();
+  const { habits, loadHabits, removeHabit, isLoading: habitLoading } = useHabitStore();
 
   useEffect(() => {
-    loadRoutines().catch(() => {
-      // silencioso; si quieres, alerta aquí
-    });
+    loadHabits().catch(() => {});
   }, []);
 
+  const FIXED_HABITS = [
+    { id: '1', name: 'Boca', image: require('../../assets/boca.jpg') },
+    { id: '2', name: 'Cama', image: require('../../assets/cama.jpg') },
+    { id: '3', name: 'Train', image: require('../../assets/train.jpg') },
+    { id: '4', name: 'Brain', image: require('../../assets/brain.jpg') },
+  ];
+
   const goNewRoutine = () => {
-    router.push('/(app)/routines/new');
+    router.push('/(app)/habits/new');
   };
 
-  const onDeleteRoutine = (id: string) => {
-    Alert.alert('Borrar rutina', '¿Seguro que quieres borrar esta rutina?', [
+  const handleExitApp = async () => {
+    try {
+      await logout();
+    } catch {}
+
+    if (Platform.OS === 'android') {
+      BackHandler.exitApp();
+    } else {
+      // On iOS we can't programmatically close the app; navigate to login instead
+      router.replace('/login');
+      Alert.alert('Salir', 'Sesión cerrada. Usa el botón de inicio para salir de la app.');
+    }
+  };
+
+  const onDeleteHabit = (id: string) => {
+    Alert.alert('Borrar hábito', '¿Seguro que quieres borrar este hábito?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Borrar',
         style: 'destructive',
         onPress: async () => {
           try {
-            await removeRoutine(id);
+            await removeHabit(id);
           } catch {
-            Alert.alert('Error', 'No se pudo borrar la rutina.');
+            Alert.alert('Error', 'No se pudo borrar el hábito.');
           }
         },
       },
@@ -38,65 +59,29 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>¡Bienvenido! 🎉</Text>
-      <Text style={styles.subtitle}>Hola, {user?.name}</Text>
-      <Text style={styles.info}>Usuario: {user?.username}</Text>
-      <Text style={styles.info}>Rol: {user?.role}</Text>
-
-      {/* ===== CTA Registrar rutina ===== */}
-      <TouchableOpacity style={styles.primaryBtn} onPress={goNewRoutine} activeOpacity={0.85}>
-        <Text style={styles.primaryBtnText}>Registrar rutina</Text>
-      </TouchableOpacity>
-
-      {/* ===== Lista de rutinas ===== */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Tus rutinas</Text>
-
-        {routineLoading ? (
-          <Text style={styles.muted}>Cargando rutinas…</Text>
-        ) : routines.length === 0 ? (
-          <Text style={styles.muted}>Aún no tienes rutinas. Crea la primera 👇</Text>
-        ) : (
-          <View style={styles.list}>
-            {routines.map((r) => (
-              <View key={r.id} style={styles.card}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cardTitle}>{r.name}</Text>
-                  <Text style={styles.cardMeta}>
-                    {r.exercises?.length ?? 0} ejercicios · {new Date(r.createdAt).toLocaleDateString()}
-                  </Text>
+    <View style={styles.root}>
+      <ImageBackground source={require('../../assets/fondo_home.png')} style={styles.screen} resizeMode="cover">
+        <ScrollView contentContainerStyle={styles.container}>
+          <View style={styles.habitGrid}>
+            {FIXED_HABITS.map((h) => (
+              <TouchableOpacity key={h.id} style={styles.habitTile} activeOpacity={0.85}>
+                <Image source={h.image} style={styles.tileImage} />
+                <View style={styles.tileLabelBg}>
+                  <Text style={styles.tileLabel}>{h.name}</Text>
                 </View>
-
-                <TouchableOpacity
-                  onPress={() => onDeleteRoutine(r.id)}
-                  style={styles.deleteBtn}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.deleteText}>Borrar</Text>
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
-        )}
-      </View>
-
-      {/* ===== Logout ===== */}
-      <TouchableOpacity
-        style={[styles.logoutBtn, authLoading && { opacity: 0.6 }]}
-        onPress={logout}
-        disabled={authLoading}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.logoutText}>{authLoading ? 'Cerrando...' : 'Cerrar Sesión'}</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        </ScrollView>
+      </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   screen: { flex: 1, backgroundColor: '#0b0b0b' },
-  container: { padding: 20, paddingBottom: 40 },
+  container: { padding: 20, paddingBottom: 110 },
 
   title: { fontSize: 28, fontWeight: '900', marginBottom: 6, color: '#fff' },
   subtitle: { fontSize: 16, color: '#cfcfcf', marginBottom: 10 },
@@ -116,17 +101,57 @@ const styles = StyleSheet.create({
   muted: { color: '#666' },
 
   list: { gap: 10 },
-  card: {
+  habitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(177,18,27,0.35)',
     borderRadius: 12,
-    padding: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginBottom: 12,
   },
-  cardTitle: { color: '#fff', fontWeight: '900', fontSize: 14, marginBottom: 2 },
-  cardMeta: { color: '#8b8b8b', fontSize: 12 },
+  habitLeft: { flexDirection: 'row', alignItems: 'center' },
+  habitIcon: { fontSize: 28, marginRight: 12, color: '#ff7a2d' },
+  habitIconImg: { width: 28, height: 28, marginRight: 12, resizeMode: 'contain' },
+  habitLabel: { color: '#ffbf7a', fontSize: 16, fontWeight: '800' },
+  habitMeta: { color: '#8b8b8b', fontSize: 12 },
+
+  habitGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  habitTile: {
+    width: '48%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#111',
+  },
+  tileImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  tileLabelBg: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  tileLabel: {
+    color: '#ffbf7a',
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
 
   deleteBtn: {
     paddingHorizontal: 12,
@@ -149,4 +174,21 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   logoutText: { color: '#ff3b30', fontSize: 16, fontWeight: '800' },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#b1121b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  fabText: { color: '#fff', fontSize: 32, lineHeight: 36, fontWeight: '900' },
 });

@@ -7,7 +7,11 @@ interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+
+  // 👇 Separados
+  isHydrated: boolean; // sesión cargada al arrancar
+  isLoading: boolean;  // login/logout en curso
+
   error: string | null;
 
   login: (username: string, password: string) => Promise<void>;
@@ -19,15 +23,17 @@ interface AuthState {
 const AUTH_TOKEN_KEY = 'auth_token';
 const AUTH_USER_KEY = 'auth_user';
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
   isAuthenticated: false,
-  isLoading: true,
+
+  isHydrated: false,
+  isLoading: false,
+
   error: null,
 
   login: async (username: string, password: string) => {
-    // Marcamos loading para que UI pueda deshabilitar inputs si quieres
     set({ isLoading: true, error: null });
 
     try {
@@ -52,7 +58,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: null,
       });
     } catch (e) {
-      // Si algo falla (storage, etc.), deja el estado consistente
       const msg = e instanceof Error ? e.message : 'Error al iniciar sesión';
       set({
         isAuthenticated: false,
@@ -66,12 +71,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    set({ isLoading: true, error: null });
     try {
-      set({ isLoading: true, error: null });
       await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
       await AsyncStorage.removeItem(AUTH_USER_KEY);
     } finally {
-      // Siempre deja el estado limpio
       set({
         user: null,
         token: null,
@@ -83,7 +87,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   loadSession: async () => {
-    set({ isLoading: true, error: null });
+    // 👇 aquí NO uses isLoading, usa hidratación
+    set({ error: null });
 
     try {
       const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
@@ -91,13 +96,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (token && userStr) {
         const user: User = JSON.parse(userStr);
-        set({ user, token, isAuthenticated: true, isLoading: false, error: null });
+        set({
+          user,
+          token,
+          isAuthenticated: true,
+          isHydrated: true,
+          error: null,
+        });
       } else {
-        set({ user: null, token: null, isAuthenticated: false, isLoading: false, error: null });
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          isHydrated: true,
+          error: null,
+        });
       }
     } catch (e) {
       console.error('Error cargando sesión:', e);
-      set({ user: null, token: null, isAuthenticated: false, isLoading: false, error: null });
+      set({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        isHydrated: true,
+        error: null,
+      });
     }
   },
 
